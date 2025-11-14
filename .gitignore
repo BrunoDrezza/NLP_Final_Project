@@ -1,0 +1,63 @@
+# ===============================
+# Python
+# ===============================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyd
+*.whl
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+.env/
+.env*/
+*.env
+.venv/
+.venv*/
+
+# ===============================
+# Jupyter Notebook
+# ===============================
+.ipynb_checkpoints/
+*.checkpoint.ipynb
+
+# ===============================
+# Sistemas operacionais
+# ===============================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ===============================
+# IDEs / Editores
+# ===============================
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# ===============================
+# Arquivos grandes
+# ===============================
+*.zip
+*.tar
+*.tar.gz
+*.h5
+*.model
+*.pt
+*.pth
+
+# ===============================
+# Logs
+# ===============================
+*.log
