@@ -1,141 +1,144 @@
+Segue o README reescrito em tom mais profissional, mantendo a mesma estrutura geral e o conteúdo técnico:
+
+---
 
 # Projeto: FinBERT em Séries Temporais de Bitcoin
 
-Este repositório contém o projeto final da disciplina de **Processamento de Linguagem Natural (NLP)**.  
-O objetivo é testar, de forma controlada, se o modelo **FinBERT** — originalmente treinado para *texto financeiro* — consegue aprender alguma informação preditiva sobre a **direção diária do preço do Bitcoin (BTC)** quando alimentado apenas com **sequências de retornos numéricos**, codificados como texto.
+Este repositório reúne o projeto final da disciplina de **Processamento de Linguagem Natural (NLP)**, cujo objetivo é investigar se o modelo **FinBERT** – originalmente pré-treinado em **texto financeiro** – é capaz de extrair informação preditiva sobre a **direção diária do preço do Bitcoin (BTC)** quando alimentado exclusivamente com **sequências de retornos numéricos**, codificados como texto.
 
-> Em outras palavras: aqui o FinBERT é “abusado” como modelo de séries temporais, e não como modelo de linguagem. A pergunta é: **ele consegue prever se o preço de amanhã sobe ou cai, só olhando para os últimos retornos?**
+Em outras palavras, o FinBERT é utilizado aqui como um modelo para séries temporais “disfarçadas” de texto: busca-se avaliar se ele consegue prever se o preço do dia seguinte irá se mover para cima ou não, considerando apenas janelas de retornos recentes.
 
 ---
 
-## 🎯 Objetivo do Projeto
+## 1. Objetivo do Projeto
 
-Este projeto está mais na linha **“experimento científico / probe de modelo”** do que “modelo de trading real”.
+O projeto tem caráter experimental e está mais próximo de um **estudo de comportamento de modelo (“model probe”)** do que de uma proposta de modelo operacional de trading.
 
-### Pergunta de pesquisa
+### 1.1 Pergunta de pesquisa
 
-> Dado o histórico diário de retornos do Bitcoin, um modelo **FinBERT fine-tunado** em janelas de retornos consegue **prever a direção do preço do dia seguinte** (subir vs. não subir) melhor do que um classificador trivial?
+> Dado o histórico diário de retornos do Bitcoin, um modelo **FinBERT fine-tunado** em janelas de retornos consegue **prever a direção do preço do dia seguinte** (subida vs. não subida) com desempenho superior a um classificador trivial (por exemplo, classe majoritária)?
 
-### Hipótese (spoiler: ela cai por terra)
+### 1.2 Hipótese
 
 A hipótese inicial era:
 
-> “Talvez a arquitetura pré-treinada do FinBERT consiga capturar algum padrão temporal nos retornos diários e exiba **poder preditivo não trivial** para a direção do próximo dia.”
+> A arquitetura pré-treinada do FinBERT poderia capturar algum padrão temporal nos retornos diários e exibir **poder preditivo não trivial** para a direção do dia seguinte.
 
-O experimento mostra que, **na forma como o problema foi formulado**, o modelo:
+Os resultados empíricos, na formulação adotada, indicam que:
 
-- aprende a **sempre prever “alta”**,  
-- alcança cerca de **51% de acurácia**, muito próximo da **classe majoritária**,  
-- e **não** apresenta evidências robustas de previsibilidade out-of-sample.
+* o modelo converge para uma estratégia de **sempre prever “alta”**;
+* a acurácia obtida é da ordem de **51%**, muito próxima da proporção da classe majoritária;
+* não há evidência consistente de previsibilidade out-of-sample.
 
 ---
 
-## 🧠 Metodologia
+## 2. Metodologia
 
-### 1. Dados
+### 2.1 Dados
 
-- **Fonte:** [`yfinance`](https://pypi.org/project/yfinance/) – ticker `BTC-USD`
-- **Período:** de 2014 até a data de execução do script
-- **Granularidade:** diária
-- **Variáveis utilizadas:**
-  - `btc_price` – preço de fechamento (`Close`)
-  - `Volume` – volume diário (apenas armazenado; o modelo atual usa apenas preço)
+* **Fonte:** [`yfinance`](https://pypi.org/project/yfinance/), ticker `BTC-USD`;
+* **Período:** de 2014 até a data de execução do script;
+* **Frequência:** diária;
+* **Variáveis utilizadas:**
 
-Os dados são salvos em dois níveis:
+  * `btc_price`: preço de fechamento diário (`Close`);
+  * `Volume`: volume diário (armazenado, mas não utilizado na versão atual do modelo).
 
-- `Data/raw/bitcoin_price_data_raw.csv` – dados crus de preço/volume  
-- `Data/processed/btc_price_data.csv` – versão processada usada pelo modelo
+Os dados são armazenados em dois níveis:
 
-### 2. Construção dos exemplos
+* `Data/raw/bitcoin_price_data_raw.csv`: dados brutos (preço e volume);
+* `Data/processed/btc_price_data.csv`: série processada utilizada pelo modelo.
+
+### 2.2 Construção dos exemplos
 
 1. A partir do preço de fechamento diário, é calculado o **retorno diário**:
 
-   \[
+   [
    r_t = \frac{close_t}{close_{t-1}} - 1
-   \]
+   ]
 
-2. Para cada dia \( t \) (a partir de um certo `lookback`), é criada uma **janela de retornos**:
+2. Para cada dia ( t ), a partir de um determinado lookback ( L ), é construída uma **janela de retornos**:
 
-   \[
+   [
    [r_{t-L+1}, \dots, r_t]
-   \]
+   ]
 
-   com `L = 30` dias (por padrão).
+   No experimento padrão, utiliza-se ( L = 30 ) dias.
 
-3. A janela é transformada em **texto**, por exemplo:
+3. Cada janela é convertida em **sequência textual**, por exemplo:
 
    ```text
    +0.0050 -0.0123 +0.0033 ...
-````
+   ```
 
-4. O **rótulo** associado a essa janela é:
+4. O **rótulo** associado à janela é definido como:
 
-   * `1` se `close_{t+1} > close_t` (dia seguinte sobe),
-   * `0` caso contrário (`down_or_flat`).
+   * `1` se ( close_{t+1} > close_t ) (preço do dia seguinte maior do que o atual – “up”);
+   * `0` caso contrário (“down_or_flat”).
 
-Assim, cada amostra é:
+Assim, cada amostra do dataset é composta por:
 
-* **Entrada:** sequência textual de 30 retornos diários
-* **Saída:** direção do dia seguinte (`up` / `down_or_flat`)
+* **Entrada:** sequência textual de retornos diários em uma janela de ( L ) dias;
+* **Saída:** direção do dia seguinte (`up` / `down_or_flat`).
 
-### 3. Split temporal (sem look-ahead)
+### 2.3 Divisão temporal (sem look-ahead)
 
 Para evitar *data leakage*:
 
-* Os dados são ordenados por data.
-* As janelas são construídas respeitando a ordem temporal.
-* O dataset final é dividido como:
+* os dados são ordenados por data;
+* as janelas são construídas respeitando a ordem temporal;
+* o conjunto é dividido da seguinte forma:
 
-  * **Treino:** primeiros **80%** das janelas (período mais antigo)
-  * **Teste:** últimos **20%** das janelas (período mais recente)
+  * **Treino:** primeiros 80% das janelas (período mais antigo);
+  * **Teste:** últimos 20% das janelas (período mais recente).
 
-Não há embaralhamento entre treino e teste; apenas o **DataLoader de treino** embaralha **dentro** do conjunto de treino, o que não introduz *look-ahead*.
+Não há embaralhamento entre treino e teste. O embaralhamento ocorre apenas no **DataLoader de treino**, o que não introduz *look-ahead*.
 
-### 4. Modelo
+### 2.4 Modelo
 
-* **Modelo base:** `ProsusAI/finbert` (via `transformers`)
-* **Cabeça de classificação:** substituída por uma camada linear de **2 classes** (`up` / `down_or_flat`)
-* **Tokenização:** FinBERT tokenizer, com `max_length = 128`
-* **Tarefa:** classificação binária
+* **Modelo base:** `ProsusAI/finbert` (via `transformers`);
+* **Cabeça de classificação:** substituída por uma camada linear de **2 classes** (`up` / `down_or_flat`);
+* **Tokenização:** tokenizer do FinBERT, com `max_length = 128`;
+* **Tarefa:** classificação binária.
 
-Treinamos o modelo com:
+Configuração padrão de treino:
 
-* Otimizador: `AdamW` (`lr = 2e-5`)
-* Batch size: 16 (treino), 64 (teste)
-* Épocas: 3
-* Métricas: **accuracy** e **F1-weighted**
+* Otimizador: `AdamW` (`lr = 2e-5`);
+* Batch size: 16 (treino) e 64 (teste);
+* Épocas: 3;
+* Métricas principais: **accuracy** e **F1-weighted**.
 
 ---
 
-## 📈 Resultados Principais
+## 3. Resultados
 
-Em uma execução típica (treino até ~80% do histórico, teste nos ~20% mais recentes), observa-se:
+Em execuções típicas (treino em aproximadamente 80% do histórico e teste nos 20% finais), observam-se resultados semelhantes a:
 
-* **Acurácia de teste:** ~0.51
-* **F1-weighted:** ~0.35
+* **Acurácia em teste:** ~0,51;
+* **F1-weighted:** ~0,35;
 * **Matriz de confusão:**
 
-  * Classe `up` – recall ≈ 1.0
-  * Classe `down_or_flat` – recall ≈ 0.0
+  * classe `up`: recall próximo de 1,0;
+  * classe `down_or_flat`: recall próximo de 0,0.
 
-Ou seja, o modelo converge para uma política extremamente simples:
+Na prática, o modelo converge para uma estratégia de previsão extremamente simples:
 
-> **“Sempre diga que o preço vai subir.”**
+> “Prever sempre que o preço irá subir.”
 
-Como o dataset é levemente desbalanceado para `up` (~51%), a acurácia fica **apenas marginalmente** acima de um chute uniformemente aleatório, e efetivamente igual a um classificador trivial de classe majoritária.
+Dado que o dataset é levemente desbalanceado a favor da classe `up` (~51%), a acurácia resulta **marginalmente acima** de um chute aleatório uniforme e equivalente a um classificador de classe majoritária.
 
-### Conclusão (estilo paper)
+### 3.1 Conclusão
 
-* **Não encontramos evidências estatisticamente convincentes** de poder preditivo out-of-sample para a direção do dia seguinte do Bitcoin usando FinBERT alimentado apenas com janelas de retornos diários.
-* O comportamento do modelo sugere que, nesse horizonte diário e com essa representação de features, a série de preços se comporta como um **passeio aleatório** para o modelo — consistente com hipóteses de eficiência de mercado em escalas curtas.
-* Do ponto de vista de NLP, o experimento é um “stress test” interessante:
+* Não foram encontradas **evidências estatisticamente robustas** de poder preditivo out-of-sample para a direção diária do Bitcoin, utilizando o FinBERT alimentado unicamente com janelas de retornos diários;
+* O comportamento observado é consistente com a hipótese de que, nesse horizonte diário e com a representação de features utilizada, a série de preços se aproxima de um **passeio aleatório**;
+* Do ponto de vista de NLP, o experimento funciona como um **teste de transferência de pré-treino**:
 
-  * O pré-treino em linguagem financeira **não se transfere** automaticamente para uma tarefa puramente numérica disfarçada de texto.
-  * A arquitetura Transformer ainda funciona como um modelo de série temporal, mas não supera um baseline de classe majoritária neste setup.
+  * o pré-treino em linguagem financeira **não se transfere automaticamente** para uma tarefa puramente numérica representada textualmente;
+  * a arquitetura Transformer é capaz de operar sobre sequências numéricas tokenizadas, mas não supera um baseline trivial nesse contexto específico.
 
 ---
 
-## 🧱 Estrutura do Repositório
+## 4. Estrutura do Repositório
 
 ```text
 NLP_FINAL_PROJECT/
@@ -162,53 +165,55 @@ NLP_FINAL_PROJECT/
 │   ├── get_bitcoin_data.py
 │   ├── train_finbert_model.py
 │   └── plot_finbert_results.py
-├── Notebooks/   # (opcional, uso exploratório)
+├── Notebooks/          # uso exploratório (opcional)
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## 🔧 Stack Tecnológico
+## 5. Stack Tecnológico
 
 * **Linguagem:** Python 3.10+
 * **Deep Learning / NLP:**
 
   * `PyTorch`
-  * `transformers` (Hugging Face) – FinBERT (`ProsusAI/finbert`)
-* **Dados & Métricas:**
+  * `transformers` (Hugging Face) – modelo `ProsusAI/finbert`
+* **Manipulação de dados e métricas:**
 
   * `pandas`, `numpy`
   * `scikit-learn` (métricas de classificação)
-* **Séries Temporais (dados):**
+* **Séries temporais:**
 
-  * `yfinance`
+  * `yfinance` (coleta de dados de mercado)
 * **Visualização:**
 
   * `matplotlib`, `seaborn`
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 6. Como Executar o Projeto
 
-### 0. Clonar o repositório
+### 6.1 Clonagem do repositório
 
 ```bash
-git clone https://github.com/<seu-usuario>/<seu-repositorio>.git
-cd <seu-repositorio>
+git clone https://github.com/<usuario>/<repositorio>.git
+cd <repositorio>
 ```
 
-### 1. Criar e ativar ambiente virtual
+### 6.2 Criação e ativação do ambiente virtual
 
 ```bash
 python -m venv venv
+
 # Windows (PowerShell):
 .\venv\Scripts\Activate.ps1
+
 # Linux/Mac:
 source venv/bin/activate
 ```
 
-### 2. Instalar dependências
+### 6.3 Instalação das dependências
 
 ```bash
 pip install -r requirements.txt
@@ -216,84 +221,85 @@ pip install -r requirements.txt
 
 ---
 
-## 🧪 Modos de Execução
+## 7. Modos de Execução
 
-A ideia é deixar tudo modular. Você pode:
+A estrutura foi pensada para permitir diferentes níveis de uso, desde a execução completa do pipeline até a reutilização apenas de resultados já gerados.
 
-1. **Baixar dados + treinar modelo + gerar figuras** (pipeline completo)
-2. **Treinar apenas o modelo** (caso já tenha os dados)
-3. **Gerar apenas as figuras** (caso já tenha os CSVs de resultados, por exemplo, vindos do repositório)
-
-Todos os scripts são chamados via `python -m src.<nome_do_script>` a partir da raiz do projeto.
-
-### 🔁 1) Pipeline completo (do zero até as figuras)
+Todas as chamadas são feitas a partir da raiz do projeto, utilizando:
 
 ```bash
-# 1. baixar e preparar os dados diários de preço do BTC
+python -m src.<nome_do_script>
+```
+
+### 7.1 Pipeline completo (dados até figuras)
+
+```bash
+# 1. Baixar e preparar dados diários de preço do BTC
 python -m src.get_bitcoin_data
 
-# 2. treinar o FinBERT como classificador binário de direção
+# 2. Treinar o FinBERT como classificador binário de direção
 python -m src.train_finbert_model
 
-# 3. gerar métricas visuais (matriz de confusão, curvas de loss/acc/F1)
+# 3. Gerar visualizações (matriz de confusão, curvas de loss/accuracy/F1)
 python -m src.plot_finbert_results
 ```
 
-Ao final, você terá:
+Ao final, serão gerados:
 
-* modelo salvo em `results/models/finbert_btc_direction_model/`
-* CSVs de métricas em `results/csv/`
-* figuras em `results/figures/`
+* modelo salvo em `results/models/finbert_btc_direction_model/`;
+* CSVs de métricas em `results/csv/`;
+* figuras em `results/figures/`.
 
-### 🧠 2) Apenas treinar (dados já baixados)
+### 7.2 Apenas treinamento (dados já processados)
 
-Se você já tiver o arquivo `Data/processed/btc_price_data.csv` (porque fez o passo 1 ou fez o download manual), basta:
+Caso o arquivo `Data/processed/btc_price_data.csv` já exista:
 
 ```bash
 python -m src.train_finbert_model
 ```
 
-Os resultados (modelo + CSVs) serão sobrescritos/atualizados na pasta `results/`.
+O modelo e as métricas serão atualizados em `results/`.
 
-### 📊 3) Apenas gerar as figuras (usar resultados existentes)
+### 7.3 Apenas geração de figuras (resultados existentes)
 
-Se você não quiser gastar tempo treinando de novo e só quer as imagens:
+Se os resultados já tiverem sido produzidos em execuções anteriores, garantindo a existência de:
 
-* Certifique-se de que existem:
+* `results/csv/finbert_btc_direction_history.csv`
+* `results/csv/finbert_btc_direction_predictions.csv`
+* `results/csv/finbert_btc_direction_classification_report.csv`
 
-  * `results/csv/finbert_btc_direction_history.csv`
-  * `results/csv/finbert_btc_direction_predictions.csv`
-  * `results/csv/finbert_btc_direction_classification_report.csv`
-
-Então rode:
+é possível gerar ou recriar as figuras com:
 
 ```bash
 python -m src.plot_finbert_results
 ```
 
-As figuras serão recriadas (ou sobrescritas) em `results/figures/`.
+As imagens serão salvas em `results/figures/`.
 
 ---
 
-## 📌 Limitações e Extensões Futuras
+## 8. Limitações e Possíveis Extensões
 
-Algumas ideias claras de extensões, caso alguém queira continuar o projeto:
+Algumas direções naturais para extensão do trabalho:
 
-* Comparar explicitamente com **baselines de séries temporais**:
+* Comparação explícita com **modelos clássicos de séries temporais**, como:
 
-  * regressão logística com features `[r_t, r_{t-1}, ...]`,
-  * modelos lineares AR,
-  * LSTM/Transformer “clássicos” em cima de retornos.
-* Mudar o **horizonte de previsão** (semanal, mensal) e/ou usar **retornos agregados**.
-* Testar versões do modelo que usem **mais features** (volatilidade, volume, indicadores técnicos).
-* Integrar, de fato, **NLP de notícias/tweets** para fazer algo mais próximo do uso original do FinBERT.
+  * regressão logística com features `[r_t, r_{t-1}, ...]`;
+  * modelos lineares (AR/ARIMA);
+  * arquiteturas recorrentes (LSTM) ou Transformers aplicados diretamente a sequências numéricas.
 
-No estado atual, o repositório foca em ser um **experimento limpo e reproduzível** para mostrar que:
+* Alteração do **horizonte de previsão** (por exemplo, semanal ou mensal) e/ou uso de **retornos agregados**.
 
-> pré-treino em linguagem natural, por si só, **não cria um oráculo de mercado** quando alimentado apenas com números.
+* Inclusão de **novas variáveis explicativas**:
+
+  * medidas de volatilidade;
+  * indicadores técnicos;
+  * volume e outros fatores de mercado.
+
+* Integração de **dados textuais**, aproximando o uso do FinBERT de seu domínio original (notícias, relatórios, tweets financeiros), combinando sinais de séries temporais com sinais de sentimento/linguagem.
+
+No estado atual, o repositório é estruturado como um **experimento reproduzível** que ilustra, de forma controlada, que:
+
+> O pré-treino em linguagem natural, isoladamente, **não implica em capacidade preditiva relevante em mercados financeiros** quando o modelo é alimentado apenas com séries numéricas representadas como texto.
 
 ---
-
-```
-::contentReference[oaicite:0]{index=0}
-```
