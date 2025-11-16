@@ -1,8 +1,4 @@
-Segue um README completinho pra você colar direto no `README.md` do projeto. Ajusta só o nome do repositório/autor se quiser.
 
----
-
-````markdown
 # Projeto: FinBERT em Séries Temporais de Bitcoin
 
 Este repositório contém o projeto final da disciplina de **Processamento de Linguagem Natural (NLP)**.  
