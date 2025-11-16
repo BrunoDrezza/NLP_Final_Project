@@ -61,3 +61,15 @@ Desktop.ini
 # Logs
 # ===============================
 *.log
+
+# ===============================
+# Jupyter Notebook
+# ===============================
+.ipynb_checkpoints/
+*.checkpoint.ipynb
+
+# Notebooks de teste / exploração (não versionar)
+Notebooks/*.ipynb
+
+# Model weights and large artifacts
+results/models/
